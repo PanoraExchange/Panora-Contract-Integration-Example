@@ -1,0 +1,13 @@
+[package]
+name = "Sample_Panora_Swap_Integration"
+version = "0.0.1"
+
+[addresses]
+integrator_address = "INTEGRATOR_ADDRESS" 
+
+[dependencies]
+AptosFramework = { git = "https://github.com/aptos-labs/aptos-core.git", subdir = "aptos-move/framework/aptos-framework/", rev = "mainnet" } 
+ 
+ 
+[dependencies.Panora_Swap]
+local = './dependencies/Panora_Swap'

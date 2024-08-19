@@ -1,0 +1,14 @@
+[package]
+name = "Panora_Swap"
+version = "0.0.1"
+
+[addresses]
+wrapper = "0x1c3206329806286fd2223647c9f9b130e66baeb6d7224a18c1f642ffe48f3b4c" 
+
+[dependencies]
+AptosFramework = { git = "https://github.com/aptos-labs/aptos-core.git", subdir = "aptos-move/framework/aptos-framework/", rev = "mainnet" } 
+ 
+ 
+
+ 
+ 
