@@ -1,115 +1,196 @@
 // Sample contract for panora swap integration
-module integrator_address::Sample
-{
+module your_contract_address::Sample {
     use aptos_framework::aptos_account;
-    use aptos_framework::coin; 
-    use std::option::{Self,Option};
+    use aptos_framework::coin;
+    use std::option::{Self, Option};
     use std::signer;
-    use std::vector;   
+    use std::vector;
     use std::fungible_asset::{Self, Metadata};
     use std::primary_fungible_store;
-    use std::object; 
+    use std::object;
 
     // Importing panora swap module
     use wrapper::panora_swap;
- 
-    // Main function for executing panora swap operations (Note - don't change order of the arguments)
-    public entry fun sample_function<
-        X1,Y1,Z1,Y2,Z2,Y3,
-        Z3,Y4,Z4,Y5,Z5,Y6,
-        Z6,Y7,Z7,Y8,Z8,Y9,
-        Z9,Y10,Z10,Y11,Z11,Y12,
-        Z12,Y13,Z13,Y14,Z14,Y15,
-        Z15,OutCoin
-    >(
-        arg0: &signer, 
-        arg1: address,
-        arg2: u64,
-        arg3: u8,
-        arg4: vector<u8>,
-        first_x_obj: vector<address>,
-        arg6: vector<vector<u8>>,
-        arg7:vector< vector<u64>>,
-        arg8: vector<vector<bool>>,
-        first_fa_case: vector<u8>, 
-        arg10: vector<address>, 
-        arg11: vector<vector<u8>>,
-        arg12: vector<vector<u64>>,
-        arg13: vector<vector<bool>>,
-        arg14: vector<u8>, 
-        arg15: vector<address>, 
-        arg16: vector<vector<u8>>,
-        arg17: vector<vector<u64>>,
-        arg18: vector<vector<bool>>,
-        arg19: vector<u8>, 
-        arg20: vector<address>, 
-        arg21: address,
-        _x_in_steps: vector<u64>,
-        arg23:  vector<vector<u64>>,
-        arg24: vector<vector<u64>>,
-        arg25: vector<vector<u64>>,
-        arg26: u64,
-        arg27: u64,
-        arg28: address
-        // Additional arguments can be appended here depending on your contract
-    )
-    {
-        // Calculate total input amount of X tokens to be passed in the swap_exact_in function
-        let total_input_amount = 0;
-        
-        vector::for_each(_x_in_steps, |e| {
-            total_input_amount = total_input_amount + e;
-        });
+
+    const E_DISPATCHABLE_FUNCTION_ERROR: u64 = 1;
+
+    // Main function for executing panora swap operations (Note - don't change order of the arguments/type arguments)
+    // fromTokenAddress and toTokenAddress are token types so only compatible with coins. In case of FA, 0x1::string::String is sent
+    // Use T23, T24, T25 for your type arguments, if required as per your contract
+    public entry fun sample_function<fromTokenAddress, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21, T22, T23, T24, T25, T26, T27, T28, T29, T30, toTokenAddress>(
+        arg0: &signer,
+        arg1: 0x1::option::Option<signer>,
+        to_wallet_address: address,
+        arg3: u64,
+        arg4: u8,
+        arg5: vector<u8>,
+        arg6: vector<vector<vector<u8>>>,
+        arg7: vector<vector<vector<u64>>>,
+        arg8: vector<vector<vector<bool>>>,
+        withdraw_case: vector<vector<u8>>, // 1 and 2 means withdraw FA, 3 and 4 means withdraw coin
+        arg10: vector<vector<vector<address>>>,
+        fa_addresses: vector<vector<address>>, // these are the addresses of FA tokens. Dummy FA addresses are used for coin swaps
+        arg12: vector<vector<address>>,
+        arg13: 0x1::option::Option<vector<vector<vector<vector<vector<u8>>>>>>,
+        arg14: vector<vector<vector<u64>>>,
+        arg15: 0x1::option::Option<vector<vector<vector<u8>>>>,
+        arg16: address,
+        from_token_amounts: vector<u64>, // deduct sum of this vector from the user's wallet
+        arg18: u64,
+        arg19: u64,
+        arg20: address
+        // Additional arguments can be appended here, if required for your contract
+    ) {
+        // Calculate total input amount to be passed in the router function
+        let total_from_token_amount = 0;
+        vector::for_each(
+            from_token_amounts,
+            |e| {
+                total_from_token_amount = total_from_token_amount + e;
+            }
+        );
 
         // Determine asset type (Coin / FA) and extract the respective token according to the function payload
-        let (coin_x , fa_x )= if( *vector::borrow(&first_fa_case,0) == 1 || *vector::borrow(&first_fa_case,0) == 2)
-        {
-            let obj = object::address_to_object<Metadata>(*vector::borrow(&first_x_obj, 0));
-            ( option::none(), option::some(primary_fungible_store::withdraw(arg0 , obj , total_input_amount) ))
-            // if integrators want to exclude fungible assets, comment out the above two lines and uncomment the below line
-            // (option::none() , option::none())
-        }
-        else
-        { 
-            ( option::some(coin::withdraw<X1>(arg0, total_input_amount)) , option::none() )
-              // if you want to exclude coins then you can replace the above line and enable the below line
-            // (option::none() , option::none())
-        };
+        let (from_token_coin, from_token_fa) =
+            if (withdraw_case[0][0] == 1 || withdraw_case[0][0] == 2) {
+                let obj = object::address_to_object<Metadata>(fa_addresses[0][0]);
+                (
+                    option::none(),
+                    option::some(
+                        primary_fungible_store_withdraw_helper(
+                            arg0, obj, total_from_token_amount
+                        )
+                    )
+                )
+                // To exclude fungible asset withdrawals, comment out the above return statement and uncomment the below return statement
+                // (option::none() , option::none())
+            } else {
+                (
+                    option::some(
+                        coin::withdraw<fromTokenAddress>(arg0, total_from_token_amount)
+                    ),
+                    option::none()
+                )
+                // To exclude coin withdrawals, comment out the above return statement and uncomment the below return statement
+                // (option::none() , option::none())
+            };
 
-        // Call the swap_exact_in function from the panora_swap module
-        // Enter the first argument as the user's address that will receive any residual tokens post-swap execution
-        let (coin_m_out, fa_m_out) = panora_swap::swap_exact_in<
-            X1,Y1,Z1,Y2,Z2,Y3,Z3,
-            Y4,Z4,Y5,Z5,
-            Y6,Z6,Y7,Z7,Y8,Z8, 
-            Y9,Z9,Y10,Z10,Y11,Z11,Y12,Z12,Y13,Z13,Y14,Z14,Y15,Z15,
-            OutCoin
-        >(signer::address_of(arg0) , coin_x, fa_x , arg2, arg3 , arg4,first_x_obj, arg6,arg7, arg8, first_fa_case, arg10, arg11, arg12, arg13, arg14 , arg15, arg16, arg17 , arg18, arg19 , arg20 ,arg21 ,_x_in_steps, arg23, arg24, arg25  , arg26, arg27, arg28 );
+        // Call the router function from the panora_swap module
+        let (coin_m_left, fa_m_left, coin_m_out, fa_m_out) =
+            panora_swap::router<fromTokenAddress, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21, T22, T23, T24, T25, T26, T27, T28, T29, T30, toTokenAddress>(
+                signer::address_of(arg0) /* this address will receive any residual amounts post swap execution*/,
+                from_token_coin,
+                from_token_fa,
+                arg3,
+                arg4,
+                arg5,
+                arg6,
+                arg7,
+                arg8,
+                withdraw_case,
+                arg10,
+                fa_addresses,
+                arg12,
+                arg13,
+                arg14,
+                arg15,
+                arg16,
+                from_token_amounts,
+                arg18,
+                arg19,
+                arg20
+            );
 
+        // this function handles coin/fa options created above. In case of exact in swap, the options are destroyed and in case of exact out swap, the remaining from token is sent to the signer of this transaction
+        check_and_deposit_fa_opt(arg0, fa_m_left);
+        check_and_deposit_coin_opt(arg0, coin_m_left);
 
-        // Checking and depositing the returned Coins or FA
-        check_and_deposit_fa_to_address_opt(arg1, fa_m_out);
-        check_and_deposit_to_address_opt<OutCoin>(arg1, coin_m_out);
+        // Checking and depositing the returned token(coin/fa)
+        check_and_deposit_fa_to_address_opt(to_wallet_address, fa_m_out);
+        check_and_deposit_coin_to_address_opt<toTokenAddress>(
+            to_wallet_address, coin_m_out
+        );
     }
 
-    
-    // Helper function to deposit FA to the given address
-    fun check_and_deposit_fa_to_address_opt(receiver: address, coin_opt: Option<0x1::fungible_asset::FungibleAsset>) {
+    // Helper function to deposit FA to the given signer
+    fun check_and_deposit_fa_opt(
+        sender: &signer, coin_opt: Option<0x1::fungible_asset::FungibleAsset>
+    ) {
         if (option::is_some(&coin_opt)) {
-            let fa = option::extract(&mut coin_opt); 
-            primary_fungible_store::deposit(receiver, fa);
-        }; 
+            let fa = option::extract(&mut coin_opt);
+            let sender_addr = signer::address_of(sender);
 
+            primary_fungible_store_deposit_helper(sender_addr, fa);
+
+        };
         option::destroy_none(coin_opt);
     }
- 
-    // Helper function to deposit coins to the given address
-    fun check_and_deposit_to_address_opt<X>(receiver: address, coin_opt:  Option<coin::Coin<X>>) {
+
+    // Helper function to deposit FA to the given address
+    fun check_and_deposit_fa_to_address_opt(
+        receiver: address, coin_opt: Option<0x1::fungible_asset::FungibleAsset>
+    ) {
+        if (option::is_some(&coin_opt)) {
+            let fa = option::extract(&mut coin_opt);
+
+            primary_fungible_store_deposit_helper(receiver, fa);
+
+        };
+        option::destroy_none(coin_opt);
+    }
+
+    // Helper function to deposit coins to the given signer
+    fun check_and_deposit_coin_opt<X>(
+        sender: &signer, coin_opt: Option<coin::Coin<X>>
+    ) {
         if (option::is_some(&coin_opt)) {
             let coin = option::extract(&mut coin_opt);
-            aptos_account::deposit_coins<X>(receiver,coin);
+            let sender_addr = signer::address_of(sender);
+            if (!coin::is_account_registered<X>(sender_addr)) {
+                coin::register<X>(sender);
+            };
+            coin::deposit(sender_addr, coin);
         };
+        option::destroy_none(coin_opt);
+    }
 
-        option::destroy_none(coin_opt);      
+    // Helper function to deposit coins to the given address
+    fun check_and_deposit_coin_to_address_opt<X>(
+        receiver: address, coin_opt: Option<coin::Coin<X>>
+    ) {
+
+        if (option::is_some(&coin_opt)) {
+            let coin = option::extract(&mut coin_opt);
+            aptos_account::deposit_coins<X>(receiver, coin);
+        };
+        option::destroy_none(coin_opt);
+
+    }
+
+    // Helper function to deposit FA to primary fungible store of the given FA
+    fun primary_fungible_store_deposit_helper(
+        receiver: address, fa: fungible_asset::FungibleAsset
+    ) {
+        let v = fungible_asset::amount(&fa);
+        let metadata = fungible_asset::asset_metadata(&fa);
+        let before = primary_fungible_store::balance(receiver, metadata);
+
+        primary_fungible_store::deposit(receiver, fa);
+        
+        let after = primary_fungible_store::balance(receiver, metadata);
+
+        assert!(
+            after - before == v,
+            E_DISPATCHABLE_FUNCTION_ERROR
+        );
+    }
+
+    // Helper function to withdraw FA from primary fungible store of the given FA
+    fun primary_fungible_store_withdraw_helper<T0: key>(
+        arg0: &signer, arg1: 0x1::object::Object<T0>, arg2: u64
+    ): 0x1::fungible_asset::FungibleAsset {
+        let v0 = 0x1::primary_fungible_store::withdraw(arg0, arg1, arg2);
+        assert!(0x1::fungible_asset::amount(&v0) == arg2, E_DISPATCHABLE_FUNCTION_ERROR);
+        v0
     }
 }

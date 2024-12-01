@@ -3,7 +3,7 @@ name = "Sample_Panora_Swap_Integration"
 version = "0.0.1"
 
 [addresses]
-integrator_address = "INTEGRATOR_ADDRESS" 
+your_contract_address = "YOUR_CONTRACT_ADDRESS" 
 
 [dependencies]
 AptosFramework = { git = "https://github.com/aptos-labs/aptos-core.git", subdir = "aptos-move/framework/aptos-framework/", rev = "mainnet" } 
